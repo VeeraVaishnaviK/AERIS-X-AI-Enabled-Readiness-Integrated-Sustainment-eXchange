@@ -12,6 +12,26 @@ from app.schemas.quality import (
     ComponentHealthBreakdown,
     AircraftHealthResult,
 )
+from app.schemas.optimization import (
+    ActionType,
+    UrgencyLevel,
+    FeasibilityStatus,
+    RecommendationResult,
+    FeasibilityCheckResult,
+    MaintenanceTaskInput,
+    ScheduleSlot,
+    OptimizationResult,
+    ReactiveComparisonResult,
+    SimulationScenario,
+    SimulationRequest,
+    SimulationResult,
+)
+from app.schemas.readiness import (
+    DailyForecast,
+    SquadronReadiness,
+    TypeReadiness,
+    FleetReadinessOverview,
+)
 
 __all__ = [
     "LoginRequest",
@@ -25,4 +45,20 @@ __all__ = [
     "DataQualityResult",
     "ComponentHealthBreakdown",
     "AircraftHealthResult",
+    "ActionType",
+    "UrgencyLevel",
+    "FeasibilityStatus",
+    "RecommendationResult",
+    "FeasibilityCheckResult",
+    "MaintenanceTaskInput",
+    "ScheduleSlot",
+    "OptimizationResult",
+    "ReactiveComparisonResult",
+    "SimulationScenario",
+    "SimulationRequest",
+    "SimulationResult",
+    "DailyForecast",
+    "SquadronReadiness",
+    "TypeReadiness",
+    "FleetReadinessOverview",
 ]
