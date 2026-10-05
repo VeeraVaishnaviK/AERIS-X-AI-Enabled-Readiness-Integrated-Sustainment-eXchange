@@ -90,11 +90,18 @@ async def test_aircraft_and_components_crud():
         session.add(comp)
         await session.commit()
 
-        result = await session.execute(select(Aircraft).where(Aircraft.id == ac_id))
-        retrieved = result.scalar_one()
-        assert retrieved.tail_number == f"T-{uid}"
-        assert len(retrieved.components) == 1
-        assert retrieved.components[0].serial_number == f"M88-{uid}"
+        try:
+            result = await session.execute(select(Aircraft).where(Aircraft.id == ac_id))
+            retrieved = result.scalar_one()
+            assert retrieved.tail_number == f"T-{uid}"
+            assert len(retrieved.components) == 1
+            assert retrieved.components[0].serial_number == f"M88-{uid}"
+        finally:
+            async with AsyncSessionLocal() as clean_session:
+                from sqlalchemy import delete
+                await clean_session.execute(delete(AircraftComponent).where(AircraftComponent.aircraft_id == ac_id))
+                await clean_session.execute(delete(Aircraft).where(Aircraft.id == ac_id))
+                await clean_session.commit()
 
 
 @pytest.mark.asyncio
@@ -160,6 +167,15 @@ async def test_technician_and_bay_double_booking_constraint():
             bay_id=bay.id,
         )
         session.add(wo2)
-        with pytest.raises(IntegrityError):
-            await session.commit()
-        await session.rollback()
+        try:
+            with pytest.raises(IntegrityError):
+                await session.commit()
+            await session.rollback()
+        finally:
+            async with AsyncSessionLocal() as clean_session:
+                from sqlalchemy import delete
+                await clean_session.execute(delete(WorkOrder).where(WorkOrder.work_order_number.like(f"WO-{uid}-%")))
+                await clean_session.execute(delete(Aircraft).where(Aircraft.id == ac_id))
+                await clean_session.execute(delete(Technician).where(Technician.employee_code == f"TECH-{uid}"))
+                await clean_session.execute(delete(MaintenanceBay).where(MaintenanceBay.bay_code == f"BAY-{uid}"))
+                await clean_session.commit()
