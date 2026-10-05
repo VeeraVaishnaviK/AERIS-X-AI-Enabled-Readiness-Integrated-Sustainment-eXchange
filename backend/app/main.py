@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
@@ -8,6 +8,7 @@ from app.api.v1 import api_router
 from app.core.config import settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import get_logger, setup_logging
+from app.services.telemetry_sim import stream_arc_generator
 
 logger = get_logger("aeris.main")
 
@@ -50,6 +51,22 @@ register_exception_handlers(app)
 
 # Include v1 API routes
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+
+@app.websocket("/ws/telemetry")
+async def websocket_telemetry_stream(websocket: WebSocket, aircraft_id: str = "IAF-TS-01"):
+    """
+    Realtime WebSocket streaming endpoint for simulated operational telemetry arc:
+    NORMAL -> DEGRADATION -> ANOMALY -> HIGH_RISK -> MAINTENANCE -> RECOVERY.
+    """
+    await websocket.accept()
+    try:
+        async for tick in stream_arc_generator(aircraft_id=aircraft_id, tick_delay_s=0.01, total_ticks=60):
+            await websocket.send_json(tick.model_dump(mode="json"))
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket client disconnected for aircraft {aircraft_id}")
+    except Exception as e:
+        logger.warning(f"WebSocket connection closed: {e}")
 
 
 @app.get("/", include_in_schema=False)
