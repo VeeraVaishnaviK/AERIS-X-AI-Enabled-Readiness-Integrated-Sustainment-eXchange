@@ -49,7 +49,7 @@ Human-in-the-Loop Cockpit Interface
 | Phase | Description | Gate Requirement | Status |
 |---|---|---|---|
 | **Phase 1** | Foundation & Architecture | Docker Compose, env config, structured logging, error handling, `/ping` 200 | **PASSED** |
-| **Phase 2** | Database & Migrations | SQLAlchemy 2.0 async models, Alembic migrations, indexes, constraints | *Pending* |
+| **Phase 2** | Database & Migrations | SQLAlchemy 2.0 async models, Alembic migrations, indexes, constraints | **PASSED** |
 | **Phase 3** | Auth & RBAC | JWT access/refresh, 6-role RBAC, audit trail middleware, seeded users | *Pending* |
 | **Phase 4** | Synthetic Data Engine | 30 aircraft, 8 sensors, 90-day degradation, seed under 90s (SEED=42) | *Pending* |
 | **Phase 5** | Data Quality & Health | 0-100 quality scoring, transparent weighted health formula | *Pending* |
