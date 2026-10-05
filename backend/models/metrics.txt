@@ -1,0 +1,22 @@
+AERIS-X ML Training Metrics
+==================================================
+Training samples:   64080
+Feature dimensions: 54
+Training time:      55.3s
+
+Failure Classification (72h lookahead)
+----------------------------------------
+  xgb_recall: 0.9533186450013771
+  xgb_precision: 0.9969758064516129
+  xgb_f1: 0.9746585949598761
+  lr_recall: 0.8102451115395208
+  lr_precision: 0.9818121141331554
+  lr_f1: 0.8878159185213127
+  test_samples: 12816
+  positive_ratio_train: 0.5665964419475655
+
+RUL Regression
+----------------------------------------
+  rul_rmse: 182.96916981312464
+  rul_mae: 104.45703140182768
+  test_samples: 12816
