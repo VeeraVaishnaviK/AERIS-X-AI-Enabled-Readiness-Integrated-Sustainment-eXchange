@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timezone, timedelta
 import pytest
 from sqlalchemy import inspect, select
@@ -21,12 +22,17 @@ from app.db.models import (
 )
 
 
+def _uid() -> str:
+    """Short unique suffix to avoid collisions across test runs."""
+    return uuid.uuid4().hex[:8]
+
+
 @pytest.mark.asyncio
 async def test_database_tables_exist():
     """Verify all 15 required models/tables exist in the database schema."""
     async with async_engine.connect() as conn:
         tables = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
-        
+
         expected_tables = [
             "aircraft",
             "aircraft_components",
@@ -44,7 +50,7 @@ async def test_database_tables_exist():
             "model_evaluations",
             "document_records",
         ]
-        
+
         for table in expected_tables:
             assert table in tables, f"Missing expected table '{table}'"
 
@@ -52,11 +58,12 @@ async def test_database_tables_exist():
 @pytest.mark.asyncio
 async def test_aircraft_and_components_crud():
     """Verify insertion and relationship between Aircraft and AircraftComponent."""
+    uid = _uid()
+    ac_id = f"TEST-{uid}"
     async with AsyncSessionLocal() as session:
-        # Create test aircraft
         aircraft = Aircraft(
-            id="TEST-001",
-            tail_number="T-001",
+            id=ac_id,
+            tail_number=f"T-{uid}",
             aircraft_type="Rafale",
             squadron="No. 17 Golden Arrows",
             base_location="Ambala AFS",
@@ -69,13 +76,12 @@ async def test_aircraft_and_components_crud():
         session.add(aircraft)
         await session.commit()
 
-        # Create component
         comp = AircraftComponent(
-            aircraft_id="TEST-001",
+            aircraft_id=ac_id,
             component_code="ENG-PORT",
             name="M88 Turbofan Engine (Port)",
             zone="ENGINES",
-            serial_number="M88-TEST-001",
+            serial_number=f"M88-{uid}",
             health_score=92.0,
             degradation_percent=8.0,
             operating_hours=1250.0,
@@ -84,20 +90,26 @@ async def test_aircraft_and_components_crud():
         session.add(comp)
         await session.commit()
 
-        # Retrieve and verify
-        result = await session.execute(select(Aircraft).where(Aircraft.id == "TEST-001"))
+        result = await session.execute(select(Aircraft).where(Aircraft.id == ac_id))
         retrieved = result.scalar_one()
-        assert retrieved.tail_number == "T-001"
+        assert retrieved.tail_number == f"T-{uid}"
         assert len(retrieved.components) == 1
-        assert retrieved.components[0].serial_number == "M88-TEST-001"
+        assert retrieved.components[0].serial_number == f"M88-{uid}"
 
 
 @pytest.mark.asyncio
 async def test_technician_and_bay_double_booking_constraint():
     """Verify unique constraint prevents overlapping technician or bay double-booking."""
+    uid = _uid()
+    ac_id = f"BOOK-{uid}"
     async with AsyncSessionLocal() as session:
+        # Create prerequisite aircraft
+        aircraft = Aircraft(
+            id=ac_id, tail_number=f"BK-{uid}", aircraft_type="Su-30MKI",
+            squadron="Test", base_location="Test AFS", status="READY",
+        )
         tech = Technician(
-            employee_code="TECH-TEST-01",
+            employee_code=f"TECH-{uid}",
             name="Sgt. Ramesh Kumar",
             rank="Lead Tech",
             specialty="Propulsion",
@@ -106,7 +118,7 @@ async def test_technician_and_bay_double_booking_constraint():
             shift="DAY",
         )
         bay = MaintenanceBay(
-            bay_code="BAY-TEST-01",
+            bay_code=f"BAY-{uid}",
             name="Heavy Bay Alpha",
             hangar_name="Hangar 1",
             bay_type="HEAVY_MAINTENANCE",
@@ -114,16 +126,15 @@ async def test_technician_and_bay_double_booking_constraint():
             is_operational=True,
             current_status="AVAILABLE",
         )
-        session.add_all([tech, bay])
+        session.add_all([aircraft, tech, bay])
         await session.commit()
 
         slot_start = datetime.now(timezone.utc) + timedelta(days=1)
         slot_end = slot_start + timedelta(hours=4)
 
-        # Booking 1
         wo1 = WorkOrder(
-            work_order_number="WO-TEST-001",
-            aircraft_id="TEST-001",
+            work_order_number=f"WO-{uid}-001",
+            aircraft_id=ac_id,
             status="SCHEDULED",
             priority="HIGH",
             action_type="INSPECT",
@@ -136,10 +147,9 @@ async def test_technician_and_bay_double_booking_constraint():
         session.add(wo1)
         await session.commit()
 
-        # Booking 2 with same technician and same start time must trigger IntegrityError
         wo2 = WorkOrder(
-            work_order_number="WO-TEST-002",
-            aircraft_id="TEST-001",
+            work_order_number=f"WO-{uid}-002",
+            aircraft_id=ac_id,
             status="SCHEDULED",
             priority="HIGH",
             action_type="INSPECT",
