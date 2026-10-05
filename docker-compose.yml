@@ -1,0 +1,98 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: aeris-postgres
+    environment:
+      POSTGRES_DB: aeris_x
+      POSTGRES_USER: aeris
+      POSTGRES_PASSWORD: aeris_dev_2024
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aeris -d aeris_x"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: aeris-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aeris-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://aeris:aeris_dev_2024@postgres:5432/aeris_x
+      - DATABASE_URL_SYNC=postgresql://aeris:aeris_dev_2024@postgres:5432/aeris_x
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=aeris-x-dev-secret-key-change-in-prod
+      - ENVIRONMENT=development
+      - LOG_LEVEL=INFO
+      - SEED=42
+    volumes:
+      - ./backend:/app
+      - model_data:/app/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aeris-worker
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://aeris:aeris_dev_2024@postgres:5432/aeris_x
+      - DATABASE_URL_SYNC=postgresql://aeris:aeris_dev_2024@postgres:5432/aeris_x
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=aeris-x-dev-secret-key-change-in-prod
+      - ENVIRONMENT=development
+      - LOG_LEVEL=INFO
+      - SEED=42
+    volumes:
+      - ./backend:/app
+      - model_data:/app/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: rq worker --url redis://redis:6379/0 aeris-predictions aeris-telemetry aeris-default
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: aeris-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - api
+    command: npm run dev -- --host 0.0.0.0
+
+volumes:
+  pgdata:
+  model_data:
